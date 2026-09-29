@@ -10,7 +10,7 @@ Cilj je klasifikacija SMS poruka na `ham` (regularne poruke) i `spam` (neželjen
 
 ## Trenutno stanje
 
-Postavljeni su okruženje, preuzimanje i učitavanje Kaggle skupa, ponovljiva obrada, stratifikovana podela podataka i osnovna tokenizacija, kao i tri Jupyter sveske. Rečnik, model i eksperimenti dolaze u narednim koracima. Trenutno nema istreniranog modela ni rezultata evaluacije.
+Postavljeni su okruženje, preuzimanje i učitavanje Kaggle skupa, ponovljiva obrada, stratifikovana podela podataka, tokenizacija i rečnik iz trening poruka, kao i četiri Jupyter sveske. Dopuna nizova, model i eksperimenti dolaze u narednim koracima. Trenutno nema istreniranog modela ni rezultata evaluacije.
 
 ## Planirana arhitektura
 
@@ -83,7 +83,7 @@ python -m src.download_data
 python -m notebook --notebook-dir=notebooks
 ```
 
-Jupyter otvara lokalni interfejs u pregledaču. `01_data_loading.ipynb` prikazuje originalni CSV, a `02_eda_preprocessing.ipynb` proverava nedostajuće vrednosti, čišćenje, raspodelu klasa i dužine poruka, a `03_train_test_split.ipynb` prikazuje podelu. Svaki notebook izvrši redom od prve ćelije. Server se zaustavlja u terminalu pritiskom na `Ctrl+C` i potvrdom ako je zatraži. Komanda `deactivate` izlazi iz virtuelnog okruženja.
+Jupyter otvara lokalni interfejs u pregledaču. `01_data_loading.ipynb` prikazuje originalni CSV, a `02_eda_preprocessing.ipynb` proverava nedostajuće vrednosti, čišćenje, raspodelu klasa i dužine poruka, a `03_train_test_split.ipynb` prikazuje podelu, a `04_tokenization_vocabulary.ipynb` prikazuje tokene i ID-jeve na malom primeru i na trening skupu. Svaki notebook izvrši redom od prve ćelije. Server se zaustavlja u terminalu pritiskom na `Ctrl+C` i potvrdom ako je zatraži. Komanda `deactivate` izlazi iz virtuelnog okruženja.
 
 ## Biblioteke u ovoj fazi
 
@@ -123,4 +123,12 @@ Test čuvamo za završnu procenu modela. Rečnik tokena i sve parametre koji se 
 python -c "from src.tokenization import tokenize_sms; print(tokenize_sms('Claim your free prize!'))"
 ```
 
-Rezultat je `['claim', 'your', 'free', 'prize', '!']`. Ovo je fiksno pravilo, bez učenja iz podataka. Sledeći korak je da napravimo rečnik samo iz trening poruka i pretvorimo tokene u ID-jeve. U cross-validaciji rečnik ćemo ponovo graditi za svaki trening fold.
+Rezultat je `['claim', 'your', 'free', 'prize', '!']`. Ovo je fiksno pravilo, bez učenja iz podataka. Rečnik iz narednog odeljka zavisi od trening poruka; tokom cross-validacije pravićemo ga ponovo za svaki trening fold.
+
+## Rečnik i ID-jevi
+
+`src/vocabulary.py` prima trening poruke, tokenizuje ih i svakom različitom tokenu dodeljuje ID. `<PAD>` ima ID `0`, a `<UNK>` ID `1`. Ostali tokeni se poređaju po opadajućoj učestalosti, pa abecedno kada imaju istu učestalost. ID je samo adresa tokena u rečniku, ne broj koji meri njegovo značenje.
+
+Na malom primeru `Free prize now!` i `Free entry now.` dobijamo `free → 2`, `now → 3`, `! → 4`, `prize → 7`. Poruka `Free offer!` postaje `[2, 1, 4]`: `offer` nije viđen u primerima, pa dobija `<UNK>` ID `1`. Brojevi u ovom primeru nisu isti kao ID-jevi rečnika napravljenog iz celog trening skupa.
+
+Sveska `04_tokenization_vocabulary.ipynb` prikazuje tabelu tih dodela i gradi pravi rečnik iz `data/processed/sms_train.csv`. Na 4.127 trening poruka on sadrži 7.842 unosa, uključujući dva posebna tokena. Izdvojeni test se ne čita pri građenju rečnika. `<PAD>` je zasad samo rezervisan; dopunu nizova i masku dodaćemo u sledećem koraku.
