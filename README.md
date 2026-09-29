@@ -10,7 +10,7 @@ Cilj je klasifikacija SMS poruka na `ham` (regularne poruke) i `spam` (neželjen
 
 ## Trenutno stanje
 
-Projekat je u početnoj fazi: postavljeni su struktura direktorijuma i Python okruženje za analizu podataka. Dataset još nije preuzet. Notebook, preprocessing, model i eksperimenti biće dodavani u narednim koracima. Trenutno nema istreniranog modela ni rezultata evaluacije.
+Projekat je u fazi učitavanja podataka: postavljeni su okruženje, skripta za preuzimanje Kaggle skupa, modul za učitavanje i prvi Jupyter notebook. Čišćenje, model i eksperimenti dolaze u narednim koracima. Trenutno nema istreniranog modela ni rezultata evaluacije.
 
 ## Planirana arhitektura
 
@@ -79,10 +79,11 @@ U aktiviranom okruženju:
 
 ```bash
 python -c "import pandas, matplotlib, notebook; print('Okruženje radi')"
+python -m src.download_data
 python -m notebook --notebook-dir=notebooks
 ```
 
-Jupyter otvara lokalni interfejs u pregledaču. Notebook za naš dataset dodajemo u narednom koraku. Server se zaustavlja u terminalu pritiskom na `Ctrl+C` i potvrdom ako je zatraži. Komanda `deactivate` izlazi iz virtuelnog okruženja.
+Jupyter otvara lokalni interfejs u pregledaču. Otvori `01_data_loading.ipynb` i izvrši ćelije redom. Notebook učitava originalni CSV kroz `src/data_loading.py`. Server se zaustavlja u terminalu pritiskom na `Ctrl+C` i potvrdom ako je zatraži. Komanda `deactivate` izlazi iz virtuelnog okruženja.
 
 ## Biblioteke u ovoj fazi
 
@@ -96,4 +97,6 @@ PyTorch, scikit-learn i MLflow dodaćemo kada implementiramo delove koji ih kori
 
 Planirani izvor: [SMS Spam Collection Dataset na Kaggle-u](https://www.kaggle.com/datasets/uciml/sms-spam-collection-dataset).
 
-Preuzimanje, provera i analiza podataka predmet su sledećih koraka. Statistike ćemo navesti nakon pregleda stvarnog fajla.
+Skripta `python -m src.download_data` preuzima originalnu ZIP arhivu u `data/raw/`. Fajl je izuzet iz Git-a. Očekivani SHA-256 arhive je `3e05b8e6e1e8fc9aef3ca69399a1bf3849a22084c8401d5d5d592e6c9a0e422b`. Ako se izvor promeni, skripta prijavljuje razliku i ne zamenjuje postojeći fajl.
+
+Učitani CSV ima 5.572 reda: 4.825 `ham` i 747 `spam`. Pored `v1` i `v2` postoje tri dodatne kolone. One su uglavnom prazne, ali u 50 redova sadrže nastavke poruka. U ovoj fazi čuvamo svih pet kolona; čišćenje i pravilo za spajanje teksta definišemo u sledećem koraku. Ovo su statistike Kaggle CSV fajla, ne broj zapisa nakon budućeg čišćenja.
