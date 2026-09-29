@@ -10,7 +10,7 @@ Cilj je klasifikacija SMS poruka na `ham` (regularne poruke) i `spam` (neželjen
 
 ## Trenutno stanje
 
-Postavljeni su okruženje, preuzimanje i učitavanje Kaggle skupa, ponovljiva obrada, stratifikovana podela podataka, tokenizacija, rečnik iz trening poruka i priprema nizova, kao i pet Jupyter sveski. Model i eksperimenti dolaze u narednim koracima. Trenutno nema istreniranog modela ni rezultata evaluacije.
+Postavljeni su okruženje, preuzimanje i učitavanje Kaggle skupa, ponovljiva obrada, stratifikovana podela podataka, tokenizacija, rečnik iz trening poruka, priprema nizova i PyTorch Dataset, kao i šest Jupyter sveski. Model i eksperimenti dolaze u narednim koracima. Trenutno nema istreniranog modela ni rezultata evaluacije.
 
 ## Planirana arhitektura
 
@@ -78,20 +78,21 @@ python -m pip install -r requirements-lock.txt
 U aktiviranom okruženju:
 
 ```bash
-python -c "import pandas, matplotlib, notebook; print('Okruženje radi')"
+python -c "import pandas, matplotlib, notebook, torch; print('Okruženje radi')"
 python -m src.download_data
 python -m notebook --notebook-dir=notebooks
 ```
 
-Jupyter otvara lokalni interfejs u pregledaču. `01_data_loading.ipynb` prikazuje originalni CSV, a `02_eda_preprocessing.ipynb` proverava nedostajuće vrednosti, čišćenje, raspodelu klasa i dužine poruka, a `03_train_test_split.ipynb` prikazuje podelu, a `04_tokenization_vocabulary.ipynb` prikazuje tokene i ID-jeve, a `05_sequences_and_padding.ipynb` dopunu, skraćivanje i masku. Svaki notebook izvrši redom od prve ćelije. Server se zaustavlja u terminalu pritiskom na `Ctrl+C` i potvrdom ako je zatraži. Komanda `deactivate` izlazi iz virtuelnog okruženja.
+Jupyter otvara lokalni interfejs u pregledaču. Sveske `01`–`03` prikazuju učitavanje, čišćenje i podelu podataka. `04_tokenization_vocabulary.ipynb` prikazuje tokene i ID-jeve, `05_sequences_and_padding.ipynb` dopunu i masku, a `06_pytorch_dataset.ipynb` jedan PyTorch primer i batch. Svaki notebook izvrši redom od prve ćelije. Server se zaustavlja u terminalu pritiskom na `Ctrl+C` i potvrdom ako je zatraži. Komanda `deactivate` izlazi iz virtuelnog okruženja.
 
 ## Biblioteke u ovoj fazi
 
 - **pandas** — učitavanje i obrada tabelarnih podataka.
 - **matplotlib** — crtanje grafikona.
 - **notebook** — Jupyter interfejs za kombinovanje koda, objašnjenja i rezultata.
+- **PyTorch (`torch`)** — tenzori, skup primera i batch-evi; kasnije i slojevi modela.
 
-PyTorch, scikit-learn i MLflow dodaćemo kada implementiramo delove koji ih koriste. Biblioteka Hugging Face Transformers nije potrebna za planiranu arhitekturu: Transformer slojeve koristićemo iz PyTorch-a.
+scikit-learn i MLflow dodaćemo kada implementiramo delove koji ih koriste. Biblioteka Hugging Face Transformers nije potrebna za planiranu arhitekturu: Transformer slojeve koristićemo iz PyTorch-a.
 
 ## Dataset
 
@@ -137,4 +138,10 @@ Sveska `04_tokenization_vocabulary.ipynb` prikazuje tabelu tih dodela i gradi pr
 
 `src/sequences.py` pretvara SMS u dve liste iste zadate dužine. Prva sadrži ID-jeve: ako poruka ima više od `max_length` tokena, zadržavamo prvih `max_length`; ako ima manje, dopunjavamo je ID-jem `<PAD> = 0`. Druga lista je `padding_mask`: `False` stoji uz stvarni token, a `True` uz dodatu nulu koju model kasnije treba da ignoriše. Nepoznati stvarni token ima ID `<UNK> = 1` i vrednost maske `False`.
 
-Na malom rečniku iz prethodnog odeljka, `Free offer!` sa `max_length=6` postaje `[2, 1, 4, 0, 0, 0]`, a maska `[False, False, False, True, True, True]`. Početna podrazumevana dužina je 128. U 4.127 trening poruka medijana je 16 tokena, a samo četiri poruke imaju više od 128 tokena. To je provereno bez čitanja izdvojenog testa. Sveska `05_sequences_and_padding.ipynb` prikazuje i primer skraćivanja. Sledeći korak je povezivanje ovih lista sa PyTorch delom projekta.
+Na malom rečniku iz prethodnog odeljka, `Free offer!` sa `max_length=6` postaje `[2, 1, 4, 0, 0, 0]`, a maska `[False, False, False, True, True, True]`. Početna podrazumevana dužina je 128. U 4.127 trening poruka medijana je 16 tokena, a samo četiri poruke imaju više od 128 tokena. To je provereno bez čitanja izdvojenog testa. Sveska `05_sequences_and_padding.ipynb` prikazuje i primer skraćivanja. Sledeći odeljak povezuje ove liste sa PyTorch-om.
+
+## PyTorch primeri i batch-evi
+
+`src/sms_dataset.py` pretvara jedan red tabele u tri tenzora: `input_ids` (`torch.long`), `padding_mask` (`torch.bool`) i `label` (`torch.long`). Klase imaju zasebno mapiranje `ham = 0`, `spam = 1`; to nisu ID-jevi reči. Dataset koristi prosleđeni rečnik, pa ćemo mu tokom cross-validacije dati rečnik odgovarajućeg trening fold-a.
+
+PyTorch `DataLoader` spaja više primera u batch. Za dve poruke i dužinu 8, `input_ids` i `padding_mask` imaju oblik `(2, 8)`, a `label` oblik `(2,)`. Prva dimenzija je broj poruka, druga broj pozicija u svakoj poruci. `06_pytorch_dataset.ipynb` prikazuje taj mali primer i prvi batch iz trening skupa. Izdvojeni test se ne koristi za izgradnju rečnika. Transformer i treniranje još nisu implementirani.
