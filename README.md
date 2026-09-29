@@ -10,7 +10,7 @@ Cilj je klasifikacija SMS poruka na `ham` (regularne poruke) i `spam` (neželjen
 
 ## Trenutno stanje
 
-Postavljeni su okruženje, preuzimanje i učitavanje Kaggle skupa, ponovljiva obrada, stratifikovana podela podataka, tokenizacija i rečnik iz trening poruka, kao i četiri Jupyter sveske. Dopuna nizova, model i eksperimenti dolaze u narednim koracima. Trenutno nema istreniranog modela ni rezultata evaluacije.
+Postavljeni su okruženje, preuzimanje i učitavanje Kaggle skupa, ponovljiva obrada, stratifikovana podela podataka, tokenizacija, rečnik iz trening poruka i priprema nizova, kao i pet Jupyter sveski. Model i eksperimenti dolaze u narednim koracima. Trenutno nema istreniranog modela ni rezultata evaluacije.
 
 ## Planirana arhitektura
 
@@ -83,7 +83,7 @@ python -m src.download_data
 python -m notebook --notebook-dir=notebooks
 ```
 
-Jupyter otvara lokalni interfejs u pregledaču. `01_data_loading.ipynb` prikazuje originalni CSV, a `02_eda_preprocessing.ipynb` proverava nedostajuće vrednosti, čišćenje, raspodelu klasa i dužine poruka, a `03_train_test_split.ipynb` prikazuje podelu, a `04_tokenization_vocabulary.ipynb` prikazuje tokene i ID-jeve na malom primeru i na trening skupu. Svaki notebook izvrši redom od prve ćelije. Server se zaustavlja u terminalu pritiskom na `Ctrl+C` i potvrdom ako je zatraži. Komanda `deactivate` izlazi iz virtuelnog okruženja.
+Jupyter otvara lokalni interfejs u pregledaču. `01_data_loading.ipynb` prikazuje originalni CSV, a `02_eda_preprocessing.ipynb` proverava nedostajuće vrednosti, čišćenje, raspodelu klasa i dužine poruka, a `03_train_test_split.ipynb` prikazuje podelu, a `04_tokenization_vocabulary.ipynb` prikazuje tokene i ID-jeve, a `05_sequences_and_padding.ipynb` dopunu, skraćivanje i masku. Svaki notebook izvrši redom od prve ćelije. Server se zaustavlja u terminalu pritiskom na `Ctrl+C` i potvrdom ako je zatraži. Komanda `deactivate` izlazi iz virtuelnog okruženja.
 
 ## Biblioteke u ovoj fazi
 
@@ -131,4 +131,10 @@ Rezultat je `['claim', 'your', 'free', 'prize', '!']`. Ovo je fiksno pravilo, be
 
 Na malom primeru `Free prize now!` i `Free entry now.` dobijamo `free → 2`, `now → 3`, `! → 4`, `prize → 7`. Poruka `Free offer!` postaje `[2, 1, 4]`: `offer` nije viđen u primerima, pa dobija `<UNK>` ID `1`. Brojevi u ovom primeru nisu isti kao ID-jevi rečnika napravljenog iz celog trening skupa.
 
-Sveska `04_tokenization_vocabulary.ipynb` prikazuje tabelu tih dodela i gradi pravi rečnik iz `data/processed/sms_train.csv`. Na 4.127 trening poruka on sadrži 7.842 unosa, uključujući dva posebna tokena. Izdvojeni test se ne čita pri građenju rečnika. `<PAD>` je zasad samo rezervisan; dopunu nizova i masku dodaćemo u sledećem koraku.
+Sveska `04_tokenization_vocabulary.ipynb` prikazuje tabelu tih dodela i gradi pravi rečnik iz `data/processed/sms_train.csv`. Na 4.127 trening poruka on sadrži 7.842 unosa, uključujući dva posebna tokena. Izdvojeni test se ne čita pri građenju rečnika. `<PAD>` služi za dopunu nizova u sledećem odeljku.
+
+## Priprema nizova i maska
+
+`src/sequences.py` pretvara SMS u dve liste iste zadate dužine. Prva sadrži ID-jeve: ako poruka ima više od `max_length` tokena, zadržavamo prvih `max_length`; ako ima manje, dopunjavamo je ID-jem `<PAD> = 0`. Druga lista je `padding_mask`: `False` stoji uz stvarni token, a `True` uz dodatu nulu koju model kasnije treba da ignoriše. Nepoznati stvarni token ima ID `<UNK> = 1` i vrednost maske `False`.
+
+Na malom rečniku iz prethodnog odeljka, `Free offer!` sa `max_length=6` postaje `[2, 1, 4, 0, 0, 0]`, a maska `[False, False, False, True, True, True]`. Početna podrazumevana dužina je 128. U 4.127 trening poruka medijana je 16 tokena, a samo četiri poruke imaju više od 128 tokena. To je provereno bez čitanja izdvojenog testa. Sveska `05_sequences_and_padding.ipynb` prikazuje i primer skraćivanja. Sledeći korak je povezivanje ovih lista sa PyTorch delom projekta.
