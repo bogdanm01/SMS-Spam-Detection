@@ -10,7 +10,7 @@ Cilj je klasifikacija SMS poruka na `ham` (regularne poruke) i `spam` (neželjen
 
 ## Trenutno stanje
 
-Postavljeni su okruženje, preuzimanje i učitavanje Kaggle skupa, ponovljiva obrada podataka i dve Jupyter sveske. Model i eksperimenti dolaze u narednim koracima. Trenutno nema istreniranog modela ni rezultata evaluacije.
+Postavljeni su okruženje, preuzimanje i učitavanje Kaggle skupa, ponovljiva obrada i stratifikovana podela podataka, kao i tri Jupyter sveske. Model i eksperimenti dolaze u narednim koracima. Trenutno nema istreniranog modela ni rezultata evaluacije.
 
 ## Planirana arhitektura
 
@@ -83,7 +83,7 @@ python -m src.download_data
 python -m notebook --notebook-dir=notebooks
 ```
 
-Jupyter otvara lokalni interfejs u pregledaču. `01_data_loading.ipynb` prikazuje originalni CSV, a `02_eda_preprocessing.ipynb` proverava nedostajuće vrednosti, čišćenje, raspodelu klasa i dužine poruka. Oba notebook-a izvrši redom od prve ćelije. Server se zaustavlja u terminalu pritiskom na `Ctrl+C` i potvrdom ako je zatraži. Komanda `deactivate` izlazi iz virtuelnog okruženja.
+Jupyter otvara lokalni interfejs u pregledaču. `01_data_loading.ipynb` prikazuje originalni CSV, a `02_eda_preprocessing.ipynb` proverava nedostajuće vrednosti, čišćenje, raspodelu klasa i dužine poruka, a `03_train_test_split.ipynb` prikazuje podelu. Svaki notebook izvrši redom od prve ćelije. Server se zaustavlja u terminalu pritiskom na `Ctrl+C` i potvrdom ako je zatraži. Komanda `deactivate` izlazi iz virtuelnog okruženja.
 
 ## Biblioteke u ovoj fazi
 
@@ -107,4 +107,10 @@ Obrađeni CSV može se ponovo napraviti komandom:
 python -m src.preprocessing
 ```
 
-Fajl `data/processed/sms_clean.csv` nastaje lokalno i izuzet je iz Git-a. Nema podele skupa ni treniranja modela u ovoj fazi.
+Fajl `data/processed/sms_clean.csv` nastaje lokalno i izuzet je iz Git-a.
+
+## Podela na trening i test
+
+Komanda `python -m src.split_data` ponavlja čišćenje originalnog skupa i pravi `data/processed/sms_train.csv` i `data/processed/sms_test.csv`. Obe datoteke su lokalne i izuzete iz Git-a. Podela je stratifikovana po klasi: nasumično se bira približno 20% iz svake klase, uz fiksno seme 42. Trening ima 4.127 poruka (3.613 `ham`, 514 `spam`), a izdvojeni test 1.031 poruku (903 `ham`, 128 `spam`). Nema istog teksta u oba dela.
+
+Test čuvamo za završnu procenu modela. Rečnik tokena i sve parametre koji se uče iz podataka pravićemo samo iz trening dela; tokom cross-validacije iz odgovarajućeg trening fold-a. Tokenizacija i model još nisu implementirani.
