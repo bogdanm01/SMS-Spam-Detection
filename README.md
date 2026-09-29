@@ -10,7 +10,7 @@ Cilj je klasifikacija SMS poruka na `ham` (regularne poruke) i `spam` (neželjen
 
 ## Trenutno stanje
 
-Postavljeni su okruženje, preuzimanje i učitavanje Kaggle skupa, ponovljiva obrada i stratifikovana podela podataka, kao i tri Jupyter sveske. Model i eksperimenti dolaze u narednim koracima. Trenutno nema istreniranog modela ni rezultata evaluacije.
+Postavljeni su okruženje, preuzimanje i učitavanje Kaggle skupa, ponovljiva obrada, stratifikovana podela podataka i osnovna tokenizacija, kao i tri Jupyter sveske. Rečnik, model i eksperimenti dolaze u narednim koracima. Trenutno nema istreniranog modela ni rezultata evaluacije.
 
 ## Planirana arhitektura
 
@@ -113,4 +113,14 @@ Fajl `data/processed/sms_clean.csv` nastaje lokalno i izuzet je iz Git-a.
 
 Komanda `python -m src.split_data` ponavlja čišćenje originalnog skupa i pravi `data/processed/sms_train.csv` i `data/processed/sms_test.csv`. Obe datoteke su lokalne i izuzete iz Git-a. Podela je stratifikovana po klasi: nasumično se bira približno 20% iz svake klase, uz fiksno seme 42. Trening ima 4.127 poruka (3.613 `ham`, 514 `spam`), a izdvojeni test 1.031 poruku (903 `ham`, 128 `spam`). Nema istog teksta u oba dela.
 
-Test čuvamo za završnu procenu modela. Rečnik tokena i sve parametre koji se uče iz podataka pravićemo samo iz trening dela; tokom cross-validacije iz odgovarajućeg trening fold-a. Tokenizacija i model još nisu implementirani.
+Test čuvamo za završnu procenu modela. Rečnik tokena i sve parametre koji se uče iz podataka pravićemo samo iz trening dela; tokom cross-validacije iz odgovarajućeg trening fold-a. Model još nije implementiran.
+
+## Tokenizacija
+
+`src/tokenization.py` pretvara jednu SMS poruku u listu tokena. Tekst se pretvara u mala slova, nizovi slova ili cifara ostaju zajedno, a svaki znak interpunkcije postaje zaseban token. Originalni tekst u CSV-u se ne menja.
+
+```bash
+python -c "from src.tokenization import tokenize_sms; print(tokenize_sms('Claim your free prize!'))"
+```
+
+Rezultat je `['claim', 'your', 'free', 'prize', '!']`. Ovo je fiksno pravilo, bez učenja iz podataka. Sledeći korak je da napravimo rečnik samo iz trening poruka i pretvorimo tokene u ID-jeve. U cross-validaciji rečnik ćemo ponovo graditi za svaki trening fold.
