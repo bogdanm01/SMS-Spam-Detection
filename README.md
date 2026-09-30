@@ -24,7 +24,7 @@ Arhitektura koristi rečnik napravljen isključivo iz trening dela, posebne `<PA
 
 Podrazumevana konfiguracija modela za prvi probni trening: dimenzija reprezentacije 64, dva encoder bloka, četiri attention glave, feed-forward dimenzija 128, dropout 0,1 i maksimalna dužina 128 tokena. To je početna postavka za proveru, a ne izabrani najbolji model.
 
-Pet konfiguracija poredimo pomoću istih pet fold-ova; MLflow evidenciju dodaćemo u narednoj celini. Rečnik se gradi zasebno na trening delu svakog fold-a, a model se ponovo inicijalizuje za svaki trening. Konfiguracije menjaju širinu ili dubinu mreže uz iste ostale uslove treniranja. Izdvojeni test skup ne koristimo za njihov izbor.
+Pet konfiguracija poredimo pomoću istih pet fold-ova i beležimo eksperimente u MLflow-u. Rečnik se gradi zasebno na trening delu svakog fold-a, a model se ponovo inicijalizuje za svaki trening. Konfiguracije menjaju širinu ili dubinu mreže uz iste ostale uslove treniranja. Izdvojeni test skup ne koristimo za njihov izbor.
 
 ## Struktura
 
@@ -97,8 +97,9 @@ Svaku svesku izvrši redom od prve ćelije. Pre druge sveske pokreni `python -m 
 - **matplotlib** — crtanje grafikona.
 - **notebook** — Jupyter interfejs za kombinovanje koda, objašnjenja i rezultata.
 - **PyTorch (`torch`)** — tenzori, batch-evi, Transformer model i petlja za trening epohe.
+- **MLflow** — lokalna evidencija parametara i metrika za poređenje konfiguracija.
 
-MLflow ćemo dodati kada počnemo da beležimo eksperimente. Za ovu jednu stratifikovanu podelu i osnovne metrike koristimo postojeći kod; scikit-learn zasad nije potreban. Biblioteka Hugging Face Transformers nije potrebna za planiranu arhitekturu: Transformer slojeve koristićemo iz PyTorch-a.
+Za podelu podataka i metrike koristimo postojeći kod; scikit-learn ne pozivamo direktno. MLflow ga instalira kao svoju zavisnost. Biblioteka Hugging Face Transformers nije potrebna za našu arhitekturu: Transformer slojeve koristimo iz PyTorch-a.
 
 ## Dataset
 
@@ -194,6 +195,18 @@ Treća sveska prikazuje broj `ham` i `spam` poruka po foldu, pojedinačne rezult
 | `shallow` | 64 | 1 | 4 | 128 |
 | `deep` | 64 | 3 | 4 | 128 |
 
-Treća sveska čita sačuvani CSV i prikazuje F1 za spam po foldu, prosek i standardnu devijaciju za svaku konfiguraciju, zajedno sa odzivom i prosečnim brojem parametara. Poređenje unapred koristi F1 posle treće epohe kao glavnu metriku. Završni test skup ne učestvuje u izboru. MLflow evidencija i konačno treniranje jednog izabranog modela slede kasnije.
+Treća sveska čita sačuvani CSV i prikazuje F1 za spam po foldu, prosek i standardnu devijaciju za svaku konfiguraciju, zajedno sa odzivom i prosečnim brojem parametara. Poređenje unapred koristi F1 posle treće epohe kao glavnu metriku. Završni test skup ne učestvuje u izboru. Konačno treniranje jednog izabranog modela sledi kasnije.
+
+## MLflow evidencija
+
+Komanda `python -m src.experiments` ponovo trenira svih 25 modela. Tokom tog pokretanja otvara po jedan MLflow run za svaku konfiguraciju u eksperimentu `sms-spam-transformer`. Beleži arhitekturne i trening parametre, metrike svakog fold-a po epohi, prosečne metrike i standardnu devijaciju F1 posle treće epohe. U svakom run-u čuva i `fold_history.csv`. Ova evidencija nastaje tokom treniranja; raniji CSV nije retroaktivno unet kao da predstavlja novo treniranje.
+
+Podrazumevano se MLflow metapodaci čuvaju u lokalnom `mlflow.db`, a artefakti u `mlruns/`. Obe lokacije su izuzete iz Git-a. Ako je postavljen `MLFLOW_TRACKING_URI`, skripta koristi tu adresu umesto lokalne baze. Za pregled lokalnih rezultata, iz korena projekta pokreni:
+
+```bash
+mlflow server --backend-store-uri sqlite:///mlflow.db --host 127.0.0.1 --port 5050
+```
+
+Zatim otvori `http://127.0.0.1:5050` i izaberi eksperiment `sms-spam-transformer`. Svaki red je jedna konfiguracija; kolona `mean_f1` daje prosek pet fold-ova posle treće epohe, `std_f1` njihovo rasipanje, a metrike `fold_1_f1` do `fold_5_f1` prikazuju tok kroz epohe. MLflow run nije završni sačuvani model.
 
 Puni eksperiment je dao 75 redova bez nedostajućih vrednosti. Posle treće epohe `wide` ima najviši prosečan F1 za spam (0,894; standardna devijacija 0,026), a `shallow` je blizu (0,882; standardna devijacija 0,015) uz približno 483 hiljade parametara naspram 824 hiljade. `wide` ima prosečan F1 0,901 posle druge epohe, pa tri epohe nisu automatski najbolji izbor. Ovi brojevi služe poređenju na validaciji, ne predstavljaju rezultat završnog testiranja.

@@ -1,4 +1,5 @@
 from random import Random
+from typing import Callable
 
 import pandas as pd
 import torch
@@ -60,6 +61,7 @@ def run_cross_validation(
     random_seed: int = 42,
     model_params: dict[str, int | float] | None = None,
     progress: bool = False,
+    on_epoch_end: Callable[[dict[str, int | float]], None] | None = None,
 ) -> pd.DataFrame:
     if epochs < 1 or batch_size < 1 or learning_rate <= 0:
         raise ValueError("Broj epoha, veličina batch-a i stopa učenja moraju biti pozitivni")
@@ -90,7 +92,7 @@ def run_cross_validation(
         for epoch in range(1, epochs + 1):
             train_loss = train_one_epoch(model, fit_loader, loss_fn, optimizer)
             metrics = evaluate_model(model, validation_loader, loss_fn)
-            results.append({
+            row = {
                 "fold": fold_number,
                 "epoch": epoch,
                 "train_size": len(fit_frame),
@@ -105,7 +107,10 @@ def run_cross_validation(
                 "f1": metrics["f1"],
                 "fp": metrics["fp"],
                 "fn": metrics["fn"],
-            })
+            }
+            results.append(row)
+            if on_epoch_end is not None:
+                on_epoch_end(row)
         if progress:
             print(f"Fold {fold_number}/{n_splits} završen", flush=True)
 

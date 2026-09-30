@@ -1,6 +1,8 @@
+import os
 from pathlib import Path
 from time import perf_counter
 
+import mlflow
 import pandas as pd
 
 from src.cross_validation import run_cross_validation
@@ -8,6 +10,7 @@ from src.cross_validation import run_cross_validation
 ROOT = Path(__file__).resolve().parents[1]
 TRAIN_PATH = ROOT / "data" / "processed" / "sms_train.csv"
 RESULTS_PATH = ROOT / "results" / "config_comparison.csv"
+EXPERIMENT_NAME = "sms-spam-transformer"
 
 CONFIGURATIONS = {
     "baseline": {
@@ -58,35 +61,73 @@ def compare_configurations(
     max_length: int = 128,
     random_seed: int = 42,
     progress: bool = False,
+    tracking_uri: str | None = None,
 ) -> pd.DataFrame:
     if configurations is None:
         configurations = CONFIGURATIONS
     if not configurations:
         raise ValueError("Potrebna je bar jedna konfiguracija")
 
+    mlflow.set_tracking_uri(
+        tracking_uri or os.environ.get("MLFLOW_TRACKING_URI") or f"sqlite:///{ROOT / 'mlflow.db'}"
+    )
+    mlflow.set_experiment(EXPERIMENT_NAME)
+
     results = []
     for name, model_params in configurations.items():
         start = perf_counter()
         if progress:
             print(f"Konfiguracija: {name}", flush=True)
-        history = run_cross_validation(
-            frame,
-            n_splits=n_splits,
-            epochs=epochs,
-            batch_size=batch_size,
-            learning_rate=learning_rate,
-            max_length=max_length,
-            random_seed=random_seed,
-            model_params=model_params,
-            progress=progress,
-        )
-        history.insert(0, "configuration", name)
-        for key, value in model_params.items():
-            history[key] = value
+        with mlflow.start_run(run_name=name):
+            mlflow.log_params({
+                **model_params,
+                "n_splits": n_splits,
+                "epochs": epochs,
+                "batch_size": batch_size,
+                "learning_rate": learning_rate,
+                "max_length": max_length,
+                "random_seed": random_seed,
+            })
+
+            def log_epoch(row: dict[str, int | float]) -> None:
+                fold = int(row["fold"])
+                mlflow.log_metrics(
+                    {
+                        f"fold_{fold}_{metric}": float(row[metric])
+                        for metric in ("train_loss", "validation_loss", "accuracy", "precision", "recall", "f1")
+                    },
+                    step=int(row["epoch"]),
+                )
+
+            history = run_cross_validation(
+                frame,
+                n_splits=n_splits,
+                epochs=epochs,
+                batch_size=batch_size,
+                learning_rate=learning_rate,
+                max_length=max_length,
+                random_seed=random_seed,
+                model_params=model_params,
+                progress=progress,
+                on_epoch_end=log_epoch,
+            )
+            history.insert(0, "configuration", name)
+            for key, value in model_params.items():
+                history[key] = value
+            final = history.loc[history["epoch"] == epochs]
+            mlflow.log_metrics({
+                "mean_f1": float(final["f1"].mean()),
+                "std_f1": float(final["f1"].std()),
+                "mean_accuracy": float(final["accuracy"].mean()),
+                "mean_precision": float(final["precision"].mean()),
+                "mean_recall": float(final["recall"].mean()),
+                "mean_parameter_count": float(final["parameter_count"].mean()),
+                "elapsed_seconds": perf_counter() - start,
+            })
+            mlflow.log_text(history.to_csv(index=False), "fold_history.csv")
         results.append(history)
         if progress:
-            elapsed = perf_counter() - start
-            print(f"{name} završen za {elapsed:.1f} s", flush=True)
+            print(f"{name} završen za {perf_counter() - start:.1f} s", flush=True)
 
     return pd.concat(results, ignore_index=True)
 
