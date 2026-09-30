@@ -10,7 +10,7 @@ Cilj je klasifikacija SMS poruka na `ham` (regularne poruke) i `spam` (neželjen
 
 ## Trenutno stanje
 
-Postavljeni su okruženje, preuzimanje i učitavanje Kaggle skupa, ponovljiva obrada, stratifikovana podela podataka, tokenizacija, rečnik iz trening poruka, priprema nizova i PyTorch Dataset, kao i tri objedinjene Jupyter sveske. Prvi prolaz kroz sopstveni Transformer model i jedan probni trening korak na dve izmišljene poruke su implementirani. Petlja za treniranje nad celim trening skupom je implementirana i prikazana kroz dve probne epohe. Treća sveska prikazuje validaciju, 5-fold cross-validaciju, poređenje pet arhitektura i izbor konfiguracije. Nova instanca izabranog `wide` modela trenirana je dve epohe na celom trening skupu, sačuvana lokalno i potom proverena na izdvojenom test skupu.
+Postavljeni su okruženje, preuzimanje i učitavanje Kaggle skupa, ponovljiva obrada, stratifikovana podela podataka, tokenizacija, rečnik iz trening poruka, priprema nizova i PyTorch Dataset, kao i tri objedinjene Jupyter sveske. Prvi prolaz kroz sopstveni Transformer model i jedan probni trening korak na dve izmišljene poruke su implementirani. Petlja za treniranje nad celim trening skupom je implementirana i prikazana kroz dve probne epohe. Treća sveska prikazuje validaciju, 5-fold cross-validaciju, poređenje pet arhitektura i izbor konfiguracije. Nova instanca izabranog `wide` modela trenirana je dve epohe na celom trening skupu, sačuvana lokalno i potom proverena na izdvojenom test skupu. Nova SMS poruka može se proveriti iz terminala ili kroz Streamlit interfejs.
 
 ## Arhitektura modela
 
@@ -37,6 +37,8 @@ SMS-Spam-Detection/
 ├── src/                    # Python moduli za obradu i model
 ├── results/                # Tabele rezultata i odluka o modelu
 ├── models/                 # Lokalni checkpoint, van Git-a
+├── app.py                  # Streamlit interfejs
+├── .streamlit/             # Boje interfejsa
 ├── .gitignore              # Šta Git ne treba da prati
 ├── .python-version         # Python 3.12
 ├── requirements.txt        # Direktne zavisnosti
@@ -99,6 +101,7 @@ Svaku svesku izvrši redom od prve ćelije. Pre druge sveske pokreni `python -m 
 - **notebook** — Jupyter interfejs za kombinovanje koda, objašnjenja i rezultata.
 - **PyTorch (`torch`)** — tenzori, batch-evi, Transformer model i petlja za trening epohe.
 - **MLflow** — lokalna evidencija parametara i metrika za poređenje konfiguracija.
+- **Streamlit** — lokalni korisnički interfejs za proveru novih SMS poruka.
 
 Za podelu podataka i metrike koristimo postojeći kod; scikit-learn ne pozivamo direktno. MLflow ga instalira kao svoju zavisnost. Biblioteka Hugging Face Transformers nije potrebna za našu arhitekturu: Transformer slojeve koristimo iz PyTorch-a.
 
@@ -232,4 +235,22 @@ Konačni rečnik ima **7.842 tokena**, a model **914.882 parametra**. Više para
 
 Na **1.031** izdvojenoj poruci rezultat je: accuracy **0,9767**, precision za spam **0,9815**, recall **0,8281** i F1 **0,8983**. Matrica zabune ima **901 TN**, **2 FP**, **22 FN** i **106 TP**. Dakle, model je propustio 22 od 128 spam poruka, uz samo dve regularne poruke pogrešno označene kao spam. Treća sveska prikazuje ove metrike i matricu. Test rezultat ne koristimo da ponovo biramo arhitekturu ili broj epoha.
 
-Puni eksperiment je dao 75 redova bez nedostajućih vrednosti. Posle treće epohe `wide` ima najviši prosečan F1 za spam (0,894; standardna devijacija 0,026), a `shallow` je blizu (0,882; standardna devijacija 0,015) uz približno 483 hiljade parametara naspram 824 hiljade. `wide` ima prosečan F1 0,901 posle druge epohe, pa tri epohe nisu automatski najbolji izbor. Ovi brojevi služe poređenju na validaciji, ne predstavljaju rezultat završnog testiranja.
+## Predviđanje za novu poruku
+
+Kada je lokalni checkpoint već napravljen, iz korena projekta pokreni:
+
+```bash
+python -m src.predict "Claim your free prize now!"
+```
+
+`predict_sms` koristi rečnik, maksimalnu dužinu i mapiranje klasa iz checkpoint-a. Poruka prolazi kroz istu tokenizaciju i dopunu kao poruke tokom treniranja; model je u režimu evaluacije i njegovi parametri se ne menjaju. Funkcija vraća oznaku `ham` ili `spam` i dva softmax skora. Skorovi sabrani daju 1, ali ih ne treba tumačiti kao provereno kalibrisanu verovatnoću.
+
+## Streamlit aplikacija
+
+Iz korena projekta, u aktiviranom okruženju i nakon što postoji `models/final_model.pt`, pokreni:
+
+```bash
+python -m streamlit run app.py
+```
+
+Streamlit će prikazati lokalnu adresu, obično `http://localhost:8501`. U polje unesi SMS poruku i klikni **Proveri poruku**. Aplikacija poziva istu funkciju `predict_sms` kao terminalska komanda, kešira učitani model između ponovnih izvršavanja i prikazuje klasu i oba skora. Ako checkpoint nedostaje, prikazuje komandu `python -m src.train_final`. Server se zaustavlja sa `Ctrl+C` u terminalu.
