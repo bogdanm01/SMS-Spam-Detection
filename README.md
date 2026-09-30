@@ -10,7 +10,7 @@ Cilj je klasifikacija SMS poruka na `ham` (regularne poruke) i `spam` (neželjen
 
 ## Trenutno stanje
 
-Postavljeni su okruženje, preuzimanje i učitavanje Kaggle skupa, ponovljiva obrada, stratifikovana podela podataka, tokenizacija, rečnik iz trening poruka, priprema nizova i PyTorch Dataset, kao i tri objedinjene Jupyter sveske. Prvi prolaz kroz sopstveni Transformer model i jedan probni trening korak na dve izmišljene poruke su implementirani. Petlja za treniranje nad celim trening skupom je implementirana i prikazana kroz dve probne epohe. Treća sveska sada prikazuje i jednu stratifikovanu validacionu podelu unutar trening skupa. Model nije sačuvan za upotrebu, a završni test nije korišćen.
+Postavljeni su okruženje, preuzimanje i učitavanje Kaggle skupa, ponovljiva obrada, stratifikovana podela podataka, tokenizacija, rečnik iz trening poruka, priprema nizova i PyTorch Dataset, kao i tri objedinjene Jupyter sveske. Prvi prolaz kroz sopstveni Transformer model i jedan probni trening korak na dve izmišljene poruke su implementirani. Petlja za treniranje nad celim trening skupom je implementirana i prikazana kroz dve probne epohe. Treća sveska prikazuje jednu validacionu podelu i 5-fold cross-validaciju za početnu konfiguraciju. Nijedan privremeni model nije sačuvan za upotrebu, a završni test nije korišćen.
 
 ## Arhitektura modela
 
@@ -87,7 +87,7 @@ Jupyter otvara lokalni interfejs u pregledaču. Tri sveske prate tok projekta:
 
 1. `01_data_analysis.ipynb` — učitavanje, čišćenje, EDA grafikoni i podela na trening i izdvojeni test.
 2. `02_text_preparation.ipynb` — tokenizacija, rečnik iz trening podataka, česti tokeni, dopuna i dužine nizova.
-3. `03_dataset_and_model.ipynb` — PyTorch Dataset, model, probni trening i validacija unutar trening skupa.
+3. `03_dataset_and_model.ipynb` — PyTorch Dataset, model, probni trening, validacija i 5-fold cross-validacija.
 
 Svaku svesku izvrši redom od prve ćelije. Pre druge sveske pokreni `python -m src.split_data` da nastane lokalni `sms_train.csv`; prva sveska podelu prikazuje u memoriji i ne upisuje fajlove. Server se zaustavlja u terminalu pritiskom na `Ctrl+C` i potvrdom ako je zatraži. Komanda `deactivate` izlazi iz virtuelnog okruženja.
 
@@ -174,4 +174,10 @@ Treća sveska koristi svih 4.127 trening poruka, `batch_size=32` i `shuffle=True
 
 Sveska `03_dataset_and_model.ipynb` poziva postojeći `split_sms` na `sms_train.csv` i dobija deo za učenje i validaciju, stratifikovano po klasama. Novi rečnik i sveže inicijalizovani model koriste samo deo za učenje. Validacioni podaci ne ulaze u rečnik niti menjaju parametre. `sms_test.csv` se ne čita.
 
-`src/evaluation.py` računa validacioni gubitak, tačnost, preciznost, odziv i F1 za `spam`, kao i TN/FP/FN/TP za matricu zabune. Tokom provere model je u evaluacionom režimu i gradijenti se ne računaju. Sveska prikazuje rezultate posle tri demonstracione epohe i poredi ih sa naivnim pravilom „sve je ham“. Ovo je samo jedna podela; broj epoha i konfiguraciju kasnije biramo pažljivije pomoću cross-validacije.
+`src/evaluation.py` računa validacioni gubitak, tačnost, preciznost, odziv i F1 za `spam`, kao i TN/FP/FN/TP za matricu zabune. Tokom provere model je u evaluacionom režimu i gradijenti se ne računaju. Sveska prikazuje rezultate posle tri demonstracione epohe i poredi ih sa naivnim pravilom „sve je ham“. Ovo je samo jedna podela; naredni odeljak uvodi cross-validaciju za pouzdanije poređenje.
+
+## Prva cross-validacija
+
+`src/cross_validation.py` deli samo `sms_train.csv` na pet stratifikovanih fold-ova. Svaka trening poruka ulazi tačno jednom u validacioni fold. Za svaki fold rečnik se pravi iz preostala četiri dela, a model i optimizer se iznova inicijalizuju. Kroz tri demonstracione epohe beležimo trening gubitak i validacione metrike posle svake epohe. Ovo je pet zasebnih treniranja iste početne konfiguracije.
+
+Treća sveska prikazuje broj `ham` i `spam` poruka po foldu, pojedinačne rezultate i prosek sa standardnom devijacijom kroz fold-ove. U ovom pokretanju F1 za spam posle treće epohe iznosi 0,822–0,899 po foldovima, prosečno 0,862 (standardna devijacija 0,035). To još nije poređenje konfiguracija niti završna ocena. Modeli iz fold-ova se ne čuvaju kao konačni model, a `sms_test.csv` se ne učitava.
