@@ -10,7 +10,7 @@ Cilj je klasifikacija SMS poruka na `ham` (regularne poruke) i `spam` (neželjen
 
 ## Trenutno stanje
 
-Postavljeni su okruženje, preuzimanje i učitavanje Kaggle skupa, ponovljiva obrada, stratifikovana podela podataka, tokenizacija, rečnik iz trening poruka, priprema nizova i PyTorch Dataset, kao i tri objedinjene Jupyter sveske. Prvi prolaz kroz sopstveni Transformer model i jedan probni trening korak na dve izmišljene poruke su implementirani. Petlja za treniranje nad celim skupom i eksperimenti dolaze u narednim koracima; trenutno nema istreniranog modela ni rezultata evaluacije.
+Postavljeni su okruženje, preuzimanje i učitavanje Kaggle skupa, ponovljiva obrada, stratifikovana podela podataka, tokenizacija, rečnik iz trening poruka, priprema nizova i PyTorch Dataset, kao i tri objedinjene Jupyter sveske. Prvi prolaz kroz sopstveni Transformer model i jedan probni trening korak na dve izmišljene poruke su implementirani. Petlja za treniranje nad celim trening skupom je implementirana i prikazana kroz dve probne epohe. Model iz sveske nije validiran ni sačuvan za upotrebu; rezultata evaluacije još nema.
 
 ## Arhitektura modela
 
@@ -87,7 +87,7 @@ Jupyter otvara lokalni interfejs u pregledaču. Tri sveske prate tok projekta:
 
 1. `01_data_analysis.ipynb` — učitavanje, čišćenje, EDA grafikoni i podela na trening i izdvojeni test.
 2. `02_text_preparation.ipynb` — tokenizacija, rečnik iz trening podataka, česti tokeni, dopuna i dužine nizova.
-3. `03_dataset_and_model.ipynb` — PyTorch Dataset, batch, prolaz kroz neistreniran model i jedan probni trening korak.
+3. `03_dataset_and_model.ipynb` — PyTorch Dataset, batch, model, jedan trening korak i dve probne epohe.
 
 Svaku svesku izvrši redom od prve ćelije. Pre druge sveske pokreni `python -m src.split_data` da nastane lokalni `sms_train.csv`; prva sveska podelu prikazuje u memoriji i ne upisuje fajlove. Server se zaustavlja u terminalu pritiskom na `Ctrl+C` i potvrdom ako je zatraži. Komanda `deactivate` izlazi iz virtuelnog okruženja.
 
@@ -96,7 +96,7 @@ Svaku svesku izvrši redom od prve ćelije. Pre druge sveske pokreni `python -m 
 - **pandas** — učitavanje i obrada tabelarnih podataka.
 - **matplotlib** — crtanje grafikona.
 - **notebook** — Jupyter interfejs za kombinovanje koda, objašnjenja i rezultata.
-- **PyTorch (`torch`)** — tenzori, batch-evi, Transformer model i jedno probno ažuriranje parametara.
+- **PyTorch (`torch`)** — tenzori, batch-evi, Transformer model i petlja za trening epohe.
 
 scikit-learn i MLflow dodaćemo kada implementiramo delove koji ih koriste. Biblioteka Hugging Face Transformers nije potrebna za planiranu arhitekturu: Transformer slojeve koristićemo iz PyTorch-a.
 
@@ -163,3 +163,9 @@ Sveska `03_dataset_and_model.ipynb` prikazuje te oblike i jedan izlaz sa tek ini
 `src/training.py` povezuje `SMSClassifier`, tačne oznake i optimizer za jedan batch. `CrossEntropyLoss` direktno prima dva sirova skora po poruci i celobrojnu oznaku `ham = 0` ili `spam = 1`. Posle računanja gubitka, `backward()` računa gradijente, a `AdamW.step()` jednom ažurira parametre. Stari gradijenti se brišu pre tog prolaza.
 
 Sveska `03_dataset_and_model.ipynb` prikazuje ovu promenu na dve izmišljene poruke i proverava da su se težine klasifikatora promenile. Jedan korak ne daje pouzdano naučen model niti metriku kvaliteta. Sledeća celina je prolaz kroz sve trening batch-eve tokom epoha, uz odvojenu validaciju.
+
+## Trening epoha
+
+`train_one_epoch` iz `src/training.py` poziva `train_one_batch` za svaki batch iz `DataLoader`-a i vraća prosečan gubitak po poruci. Pošto poslednji batch može biti manji, svaki batch gubitak množi brojem njegovih poruka pre deljenja ukupnim brojem primera.
+
+Treća sveska koristi svih 4.127 trening poruka, `batch_size=32` i `shuffle=True`: jedna epoha ima 129 batch-eva, odnosno 129 ažuriranja parametara. Prikazane su dve demonstracione epohe sa novo inicijalizovanim modelom. Gubitak nad trening porukama nije rezultat evaluacije. Sledeća celina je validacija na izdvojenom delu trening skupa; završni test ostaje netaknut.
