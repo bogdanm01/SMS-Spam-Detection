@@ -16,7 +16,8 @@ data/processed/*
 *.pt
 *.pth
 *.safetensors
-models/
+models/*
+!models/final_model.pt
 
 mlruns/
 mlartifacts/

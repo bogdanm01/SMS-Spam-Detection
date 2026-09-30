@@ -36,9 +36,13 @@ SMS-Spam-Detection/
 ├── notebooks/              # Jupyter sveske za analizu
 ├── src/                    # Python moduli za obradu i model
 ├── results/                # Tabele rezultata i odluka o modelu
-├── models/                 # Lokalni checkpoint, van Git-a
+├── models/                 # Završni checkpoint za predviđanje
 ├── app.py                  # Streamlit interfejs
 ├── .streamlit/             # Boje interfejsa
+├── Dockerfile              # Slika za pokretanje aplikacije
+├── compose.yaml            # Lokalni kontejner i port
+├── requirements-app.txt    # Web zavisnosti aplikacije
+├── .dockerignore           # Fajlovi van Docker build konteksta
 ├── .gitignore              # Šta Git ne treba da prati
 ├── .python-version         # Python 3.12
 ├── requirements.txt        # Direktne zavisnosti
@@ -227,7 +231,7 @@ Posle izbora napravili smo novu instancu `wide` modela i nov rečnik iz svih 4.1
 
 Konačni rečnik ima **7.842 tokena**, a model **914.882 parametra**. Više parametara nego u pojedinačnim CV foldovima potiče od većeg rečnika iz celog trening skupa. Trening gubitak se smanjio sa **0,1857** na **0,0657**; to pokazuje da model uči trening poruke, ali nije mera rada na neviđenim porukama.
 
-`models/final_model.pt` sadrži `state_dict` naučenih težina, rečnik tokena, arhitekturu, maksimalnu dužinu, mapiranje `ham=0`/`spam=1` i podatke o treniranju. `src/model_io.py` iz tih podataka ponovo pravi `SMSClassifier`, učitava težine uz `weights_only=True` i prebacuje ga u režim za predviđanje. Skripta proverava da učitani model daje isti izlaz kao model neposredno posle treniranja. Fajl `.pt` i ceo `models/` direktorijum su izuzeti iz Git-a; možeš ih ponovo dobiti pokretanjem gornje komande nakon pripreme podataka.
+`models/final_model.pt` sadrži `state_dict` naučenih težina, rečnik tokena, arhitekturu, maksimalnu dužinu, mapiranje `ham=0`/`spam=1` i podatke o treniranju. `src/model_io.py` iz tih podataka ponovo pravi `SMSClassifier`, učitava težine uz `weights_only=True` i prebacuje ga u režim za predviđanje. Skripta proverava da učitani model daje isti izlaz kao model neposredno posle treniranja. Završni checkpoint više nije ignorisan i treba ga dodati u Git uz Docker fajlove; možeš ga ponovo napraviti pokretanjem gornje komande nakon pripreme podataka.
 
 ## Završni test
 
@@ -254,3 +258,23 @@ python -m streamlit run app.py
 ```
 
 Streamlit će prikazati lokalnu adresu, obično `http://localhost:8501`. U polje unesi SMS poruku i klikni **Proveri poruku**. Aplikacija poziva istu funkciju `predict_sms` kao terminalska komanda, kešira učitani model između ponovnih izvršavanja i prikazuje klasu i oba skora. Ako checkpoint nedostaje, prikazuje komandu `python -m src.train_final`. Server se zaustavlja sa `Ctrl+C` u terminalu.
+
+## Docker
+
+Docker pokreće samo aplikaciju za predviđanje; treniranje, Jupyter i MLflow ostaju u lokalnom Python okruženju. Dockerfile instalira CPU izdanje PyTorch-a i web zavisnosti iz `requirements-app.txt`. U sliku se kopira `models/final_model.pt`: završni checkpoint sadrži težine modela, rečnik i konfiguraciju potrebnu za predviđanje. Dodaj taj fajl u naredni Git commit zajedno sa Docker fajlovima; posle slanja na GitHub aplikacija će moći da se izgradi iz sveže kloniranog repozitorijuma bez ponovnog treniranja. Ostali checkpoint-i i lokalni podaci ostaju izuzeti.
+
+Iz korena projekta pokreni:
+
+```bash
+docker compose up --build
+```
+
+Otvori `http://127.0.0.1:8501`. Port je dostupan samo sa ovog računara. Kontejner koristi checkpoint već upakovan u sliku; ne zavisi od lokalnog `models/` direktorijuma tokom pokretanja. Ako zameniš završni checkpoint novim treniranjem, ponovo izgradi sliku sa `docker compose up --build`.
+
+Ako je port 8501 zauzet lokalno pokrenutim Streamlit-om, izaberi drugi port, na primer `SMS_APP_PORT=8502 docker compose up --build`, pa otvori `http://127.0.0.1:8502`.
+
+Za zaustavljanje pritisni `Ctrl+C`, a zatim ukloni kontejner:
+
+```bash
+docker compose down
+```

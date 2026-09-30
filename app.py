@@ -25,8 +25,10 @@ def main() -> None:
     st.write("Proveri da li model novu SMS poruku prepoznaje kao regularnu ili neželjenu.")
 
     if not MODEL_PATH.is_file():
-        st.error("Sačuvani model nije pronađen. Prvo ga napravi iz korena projekta:")
+        st.error("Sačuvani model nije pronađen na models/final_model.pt.")
+        st.write("Ako pokrećeš aplikaciju lokalno, napravi checkpoint iz korena projekta:")
         st.code("python -m src.train_final", language="bash")
+        st.write("Ako koristiš Docker, proveri da li je checkpoint kopiran u sliku tokom izgradnje.")
         st.stop()
 
     with st.form("sms-form"):
