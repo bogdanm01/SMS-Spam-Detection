@@ -10,7 +10,7 @@ Cilj je klasifikacija SMS poruka na `ham` (regularne poruke) i `spam` (neželjen
 
 ## Trenutno stanje
 
-Postavljeni su okruženje, preuzimanje i učitavanje Kaggle skupa, ponovljiva obrada, stratifikovana podela podataka, tokenizacija, rečnik iz trening poruka, priprema nizova i PyTorch Dataset, kao i tri objedinjene Jupyter sveske. Prvi prolaz kroz sopstveni Transformer model i jedan probni trening korak na dve izmišljene poruke su implementirani. Petlja za treniranje nad celim trening skupom je implementirana i prikazana kroz dve probne epohe. Model iz sveske nije validiran ni sačuvan za upotrebu; rezultata evaluacije još nema.
+Postavljeni su okruženje, preuzimanje i učitavanje Kaggle skupa, ponovljiva obrada, stratifikovana podela podataka, tokenizacija, rečnik iz trening poruka, priprema nizova i PyTorch Dataset, kao i tri objedinjene Jupyter sveske. Prvi prolaz kroz sopstveni Transformer model i jedan probni trening korak na dve izmišljene poruke su implementirani. Petlja za treniranje nad celim trening skupom je implementirana i prikazana kroz dve probne epohe. Treća sveska sada prikazuje i jednu stratifikovanu validacionu podelu unutar trening skupa. Model nije sačuvan za upotrebu, a završni test nije korišćen.
 
 ## Arhitektura modela
 
@@ -87,7 +87,7 @@ Jupyter otvara lokalni interfejs u pregledaču. Tri sveske prate tok projekta:
 
 1. `01_data_analysis.ipynb` — učitavanje, čišćenje, EDA grafikoni i podela na trening i izdvojeni test.
 2. `02_text_preparation.ipynb` — tokenizacija, rečnik iz trening podataka, česti tokeni, dopuna i dužine nizova.
-3. `03_dataset_and_model.ipynb` — PyTorch Dataset, batch, model, jedan trening korak i dve probne epohe.
+3. `03_dataset_and_model.ipynb` — PyTorch Dataset, model, probni trening i validacija unutar trening skupa.
 
 Svaku svesku izvrši redom od prve ćelije. Pre druge sveske pokreni `python -m src.split_data` da nastane lokalni `sms_train.csv`; prva sveska podelu prikazuje u memoriji i ne upisuje fajlove. Server se zaustavlja u terminalu pritiskom na `Ctrl+C` i potvrdom ako je zatraži. Komanda `deactivate` izlazi iz virtuelnog okruženja.
 
@@ -98,7 +98,7 @@ Svaku svesku izvrši redom od prve ćelije. Pre druge sveske pokreni `python -m 
 - **notebook** — Jupyter interfejs za kombinovanje koda, objašnjenja i rezultata.
 - **PyTorch (`torch`)** — tenzori, batch-evi, Transformer model i petlja za trening epohe.
 
-scikit-learn i MLflow dodaćemo kada implementiramo delove koji ih koriste. Biblioteka Hugging Face Transformers nije potrebna za planiranu arhitekturu: Transformer slojeve koristićemo iz PyTorch-a.
+MLflow ćemo dodati kada počnemo da beležimo eksperimente. Za ovu jednu stratifikovanu podelu i osnovne metrike koristimo postojeći kod; scikit-learn zasad nije potreban. Biblioteka Hugging Face Transformers nije potrebna za planiranu arhitekturu: Transformer slojeve koristićemo iz PyTorch-a.
 
 ## Dataset
 
@@ -168,4 +168,10 @@ Sveska `03_dataset_and_model.ipynb` prikazuje ovu promenu na dve izmišljene por
 
 `train_one_epoch` iz `src/training.py` poziva `train_one_batch` za svaki batch iz `DataLoader`-a i vraća prosečan gubitak po poruci. Pošto poslednji batch može biti manji, svaki batch gubitak množi brojem njegovih poruka pre deljenja ukupnim brojem primera.
 
-Treća sveska koristi svih 4.127 trening poruka, `batch_size=32` i `shuffle=True`: jedna epoha ima 129 batch-eva, odnosno 129 ažuriranja parametara. Prikazane su dve demonstracione epohe sa novo inicijalizovanim modelom. Gubitak nad trening porukama nije rezultat evaluacije. Sledeća celina je validacija na izdvojenom delu trening skupa; završni test ostaje netaknut.
+Treća sveska koristi svih 4.127 trening poruka, `batch_size=32` i `shuffle=True`: jedna epoha ima 129 batch-eva, odnosno 129 ažuriranja parametara. Prikazane su dve demonstracione epohe sa novo inicijalizovanim modelom. Gubitak nad trening porukama nije rezultat evaluacije. Sledeća celina je provera na izdvojenom delu trening skupa; završni test ostaje netaknut.
+
+## Prva validacija
+
+Sveska `03_dataset_and_model.ipynb` poziva postojeći `split_sms` na `sms_train.csv` i dobija deo za učenje i validaciju, stratifikovano po klasama. Novi rečnik i sveže inicijalizovani model koriste samo deo za učenje. Validacioni podaci ne ulaze u rečnik niti menjaju parametre. `sms_test.csv` se ne čita.
+
+`src/evaluation.py` računa validacioni gubitak, tačnost, preciznost, odziv i F1 za `spam`, kao i TN/FP/FN/TP za matricu zabune. Tokom provere model je u evaluacionom režimu i gradijenti se ne računaju. Sveska prikazuje rezultate posle tri demonstracione epohe i poredi ih sa naivnim pravilom „sve je ham“. Ovo je samo jedna podela; broj epoha i konfiguraciju kasnije biramo pažljivije pomoću cross-validacije.
