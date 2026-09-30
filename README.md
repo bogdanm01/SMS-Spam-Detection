@@ -10,7 +10,7 @@ Cilj je klasifikacija SMS poruka na `ham` (regularne poruke) i `spam` (neželjen
 
 ## Trenutno stanje
 
-Postavljeni su okruženje, preuzimanje i učitavanje Kaggle skupa, ponovljiva obrada, stratifikovana podela podataka, tokenizacija, rečnik iz trening poruka, priprema nizova i PyTorch Dataset, kao i tri objedinjene Jupyter sveske. Prvi prolaz kroz sopstveni Transformer model i jedan probni trening korak na dve izmišljene poruke su implementirani. Petlja za treniranje nad celim trening skupom je implementirana i prikazana kroz dve probne epohe. Treća sveska prikazuje jednu validacionu podelu i 5-fold cross-validaciju za početnu konfiguraciju. Nijedan privremeni model nije sačuvan za upotrebu, a završni test nije korišćen.
+Postavljeni su okruženje, preuzimanje i učitavanje Kaggle skupa, ponovljiva obrada, stratifikovana podela podataka, tokenizacija, rečnik iz trening poruka, priprema nizova i PyTorch Dataset, kao i tri objedinjene Jupyter sveske. Prvi prolaz kroz sopstveni Transformer model i jedan probni trening korak na dve izmišljene poruke su implementirani. Petlja za treniranje nad celim trening skupom je implementirana i prikazana kroz dve probne epohe. Treća sveska prikazuje jednu validacionu podelu, 5-fold cross-validaciju za početnu konfiguraciju i poređenje pet arhitektura. Nijedan privremeni model nije sačuvan za upotrebu, a završni test nije korišćen.
 
 ## Arhitektura modela
 
@@ -24,7 +24,7 @@ Arhitektura koristi rečnik napravljen isključivo iz trening dela, posebne `<PA
 
 Podrazumevana konfiguracija modela za prvi probni trening: dimenzija reprezentacije 64, dva encoder bloka, četiri attention glave, feed-forward dimenzija 128, dropout 0,1 i maksimalna dužina 128 tokena. To je početna postavka za proveru, a ne izabrani najbolji model.
 
-Planirano je poređenje najmanje pet konfiguracija uz cross-validaciju i MLflow evidenciju. Rečnik se gradi zasebno na trening delu svakog fold-a, a model se ponovo inicijalizuje za svaki trening. Konačne konfiguracije definisaćemo nakon provere početnog modela. Izdvojeni test skup ne koristimo za njihov izbor.
+Pet konfiguracija poredimo pomoću istih pet fold-ova; MLflow evidenciju dodaćemo u narednoj celini. Rečnik se gradi zasebno na trening delu svakog fold-a, a model se ponovo inicijalizuje za svaki trening. Konfiguracije menjaju širinu ili dubinu mreže uz iste ostale uslove treniranja. Izdvojeni test skup ne koristimo za njihov izbor.
 
 ## Struktura
 
@@ -35,7 +35,7 @@ SMS-Spam-Detection/
 │   └── processed/           # Podaci dobijeni obradom
 ├── notebooks/              # Jupyter sveske za analizu
 ├── src/                    # Python moduli za obradu i model
-├── results/                # Budući rezultati i grafikoni
+├── results/                # Tabele rezultata i budući grafikoni
 ├── .gitignore              # Šta Git ne treba da prati
 ├── .python-version         # Python 3.12
 ├── requirements.txt        # Direktne zavisnosti
@@ -87,7 +87,7 @@ Jupyter otvara lokalni interfejs u pregledaču. Tri sveske prate tok projekta:
 
 1. `01_data_analysis.ipynb` — učitavanje, čišćenje, EDA grafikoni i podela na trening i izdvojeni test.
 2. `02_text_preparation.ipynb` — tokenizacija, rečnik iz trening podataka, česti tokeni, dopuna i dužine nizova.
-3. `03_dataset_and_model.ipynb` — PyTorch Dataset, model, probni trening, validacija i 5-fold cross-validacija.
+3. `03_dataset_and_model.ipynb` — PyTorch Dataset, model, probni trening, validacija i poređenje konfiguracija.
 
 Svaku svesku izvrši redom od prve ćelije. Pre druge sveske pokreni `python -m src.split_data` da nastane lokalni `sms_train.csv`; prva sveska podelu prikazuje u memoriji i ne upisuje fajlove. Server se zaustavlja u terminalu pritiskom na `Ctrl+C` i potvrdom ako je zatraži. Komanda `deactivate` izlazi iz virtuelnog okruženja.
 
@@ -181,3 +181,19 @@ Sveska `03_dataset_and_model.ipynb` poziva postojeći `split_sms` na `sms_train.
 `src/cross_validation.py` deli samo `sms_train.csv` na pet stratifikovanih fold-ova. Svaka trening poruka ulazi tačno jednom u validacioni fold. Za svaki fold rečnik se pravi iz preostala četiri dela, a model i optimizer se iznova inicijalizuju. Kroz tri demonstracione epohe beležimo trening gubitak i validacione metrike posle svake epohe. Ovo je pet zasebnih treniranja iste početne konfiguracije.
 
 Treća sveska prikazuje broj `ham` i `spam` poruka po foldu, pojedinačne rezultate i prosek sa standardnom devijacijom kroz fold-ove. U ovom pokretanju F1 za spam posle treće epohe iznosi 0,822–0,899 po foldovima, prosečno 0,862 (standardna devijacija 0,035). To još nije poređenje konfiguracija niti završna ocena. Modeli iz fold-ova se ne čuvaju kao konačni model, a `sms_test.csv` se ne učitava.
+
+## Poređenje konfiguracija
+
+`python -m src.experiments` čita samo `data/processed/sms_train.csv`, pokreće pet konfiguracija kroz istih pet stratifikovanih fold-ova i čuva po jedan red za svaki fold i epohu u `results/config_comparison.csv`. Jedna konfiguracija znači pet nezavisnih treniranja, pa ceo eksperiment sadrži 25 treniranja. Svako koristi tri epohe, batch veličine 32, stopu učenja 0,001, maksimalnu dužinu 128 i dropout 0,1. Rečnik, model i optimizer nastaju iznova unutar svakog fold-a.
+
+| Konfiguracija | Dimenzija vektora | Encoder slojevi | Attention glave | Feed-forward dimenzija |
+| --- | ---: | ---: | ---: | ---: |
+| `baseline` | 64 | 2 | 4 | 128 |
+| `narrow` | 32 | 2 | 4 | 64 |
+| `wide` | 96 | 2 | 4 | 192 |
+| `shallow` | 64 | 1 | 4 | 128 |
+| `deep` | 64 | 3 | 4 | 128 |
+
+Treća sveska čita sačuvani CSV i prikazuje F1 za spam po foldu, prosek i standardnu devijaciju za svaku konfiguraciju, zajedno sa odzivom i prosečnim brojem parametara. Poređenje unapred koristi F1 posle treće epohe kao glavnu metriku. Završni test skup ne učestvuje u izboru. MLflow evidencija i konačno treniranje jednog izabranog modela slede kasnije.
+
+Puni eksperiment je dao 75 redova bez nedostajućih vrednosti. Posle treće epohe `wide` ima najviši prosečan F1 za spam (0,894; standardna devijacija 0,026), a `shallow` je blizu (0,882; standardna devijacija 0,015) uz približno 483 hiljade parametara naspram 824 hiljade. `wide` ima prosečan F1 0,901 posle druge epohe, pa tri epohe nisu automatski najbolji izbor. Ovi brojevi služe poređenju na validaciji, ne predstavljaju rezultat završnog testiranja.

@@ -58,6 +58,8 @@ def run_cross_validation(
     learning_rate: float = 0.001,
     max_length: int = 128,
     random_seed: int = 42,
+    model_params: dict[str, int | float] | None = None,
+    progress: bool = False,
 ) -> pd.DataFrame:
     if epochs < 1 or batch_size < 1 or learning_rate <= 0:
         raise ValueError("Broj epoha, veličina batch-a i stopa učenja moraju biti pozitivni")
@@ -78,7 +80,10 @@ def run_cross_validation(
             shuffle=False,
         )
         torch.manual_seed(random_seed + fold_number)
-        model = SMSClassifier(vocab_size=len(vocabulary), max_length=max_length)
+        model = SMSClassifier(
+            vocab_size=len(vocabulary), max_length=max_length, **(model_params or {})
+        )
+        parameter_count = sum(parameter.numel() for parameter in model.parameters())
         loss_fn = nn.CrossEntropyLoss()
         optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
@@ -91,6 +96,7 @@ def run_cross_validation(
                 "train_size": len(fit_frame),
                 "validation_size": len(validation_frame),
                 "vocabulary_size": len(vocabulary),
+                "parameter_count": parameter_count,
                 "train_loss": train_loss,
                 "validation_loss": metrics["loss"],
                 "accuracy": metrics["accuracy"],
@@ -100,5 +106,7 @@ def run_cross_validation(
                 "fp": metrics["fp"],
                 "fn": metrics["fn"],
             })
+        if progress:
+            print(f"Fold {fold_number}/{n_splits} završen", flush=True)
 
     return pd.DataFrame(results)
