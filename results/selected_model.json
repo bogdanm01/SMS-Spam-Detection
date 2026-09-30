@@ -1,0 +1,26 @@
+{
+  "configuration": "wide",
+  "epochs": 2,
+  "model_params": {
+    "d_model": 96,
+    "n_heads": 4,
+    "n_layers": 2,
+    "dim_feedforward": 192,
+    "dropout": 0.1
+  },
+  "selection": {
+    "source": "results/config_comparison.csv",
+    "folds": 5,
+    "architecture_comparison_epoch": 3,
+    "architecture_rule": "Najveći prosečan F1 za spam u unapred izabranoj završnoj epohi",
+    "epoch_rule": "Najveći prosečan F1 za spam izabrane arhitekture; u slučaju izjednačenja ranija epoha",
+    "mean_f1_at_comparison_epoch": 0.8944691433777727
+  },
+  "validation": {
+    "mean_f1": 0.9013348431835826,
+    "std_f1": 0.015820212133841823,
+    "mean_precision": 0.9651091177670927,
+    "mean_recall": 0.8462402436702836,
+    "mean_loss": 0.0797288047236443
+  }
+}

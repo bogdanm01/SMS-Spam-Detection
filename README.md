@@ -6,11 +6,11 @@ Projekat iz predmeta Veštačka inteligencija sa primenama.
 
 **Tema:** Transformer — SMS Spam Detection
 
-Cilj je klasifikacija SMS poruka na `ham` (regularne poruke) i `spam` (neželjene poruke), pomoću sopstvenog malog Transformer modela implementiranog u PyTorch-u. Parametri modela biće nasumično inicijalizovani i trenirani na SMS podacima.
+Cilj je klasifikacija SMS poruka na `ham` (regularne poruke) i `spam` (neželjene poruke), pomoću sopstvenog malog Transformer modela implementiranog u PyTorch-u. Model se inicijalizuje nasumično i trenira na SMS podacima.
 
 ## Trenutno stanje
 
-Postavljeni su okruženje, preuzimanje i učitavanje Kaggle skupa, ponovljiva obrada, stratifikovana podela podataka, tokenizacija, rečnik iz trening poruka, priprema nizova i PyTorch Dataset, kao i tri objedinjene Jupyter sveske. Prvi prolaz kroz sopstveni Transformer model i jedan probni trening korak na dve izmišljene poruke su implementirani. Petlja za treniranje nad celim trening skupom je implementirana i prikazana kroz dve probne epohe. Treća sveska prikazuje jednu validacionu podelu, 5-fold cross-validaciju za početnu konfiguraciju i poređenje pet arhitektura. Nijedan privremeni model nije sačuvan za upotrebu, a završni test nije korišćen.
+Postavljeni su okruženje, preuzimanje i učitavanje Kaggle skupa, ponovljiva obrada, stratifikovana podela podataka, tokenizacija, rečnik iz trening poruka, priprema nizova i PyTorch Dataset, kao i tri objedinjene Jupyter sveske. Prvi prolaz kroz sopstveni Transformer model i jedan probni trening korak na dve izmišljene poruke su implementirani. Petlja za treniranje nad celim trening skupom je implementirana i prikazana kroz dve probne epohe. Treća sveska prikazuje validaciju, 5-fold cross-validaciju, poređenje pet arhitektura i izbor konfiguracije. Nova instanca izabranog `wide` modela trenirana je dve epohe na celom trening skupu, sačuvana lokalno i potom proverena na izdvojenom test skupu.
 
 ## Arhitektura modela
 
@@ -20,7 +20,7 @@ SMS → tokenizacija → identifikatori tokena
     → prosek reprezentacija stvarnih tokena → klasifikacioni sloj
 ```
 
-Arhitektura koristi rečnik napravljen isključivo iz trening dela, posebne `<PAD>` i `<UNK>` tokene i padding masku. Embedding, Transformer blokove i klasifikacioni sloj treniraćemo zajedno. Encoder blokovi su PyTorch komponente; ne preuzimamo prethodno obučene težine.
+Arhitektura koristi rečnik napravljen isključivo iz trening dela, posebne `<PAD>` i `<UNK>` tokene i padding masku. Embedding, Transformer blokovi i klasifikacioni sloj treniraju se zajedno. Encoder blokovi su PyTorch komponente; ne preuzimamo prethodno obučene težine.
 
 Podrazumevana konfiguracija modela za prvi probni trening: dimenzija reprezentacije 64, dva encoder bloka, četiri attention glave, feed-forward dimenzija 128, dropout 0,1 i maksimalna dužina 128 tokena. To je početna postavka za proveru, a ne izabrani najbolji model.
 
@@ -35,7 +35,8 @@ SMS-Spam-Detection/
 │   └── processed/           # Podaci dobijeni obradom
 ├── notebooks/              # Jupyter sveske za analizu
 ├── src/                    # Python moduli za obradu i model
-├── results/                # Tabele rezultata i budući grafikoni
+├── results/                # Tabele rezultata i odluka o modelu
+├── models/                 # Lokalni checkpoint, van Git-a
 ├── .gitignore              # Šta Git ne treba da prati
 ├── .python-version         # Python 3.12
 ├── requirements.txt        # Direktne zavisnosti
@@ -87,7 +88,7 @@ Jupyter otvara lokalni interfejs u pregledaču. Tri sveske prate tok projekta:
 
 1. `01_data_analysis.ipynb` — učitavanje, čišćenje, EDA grafikoni i podela na trening i izdvojeni test.
 2. `02_text_preparation.ipynb` — tokenizacija, rečnik iz trening podataka, česti tokeni, dopuna i dužine nizova.
-3. `03_dataset_and_model.ipynb` — PyTorch Dataset, model, probni trening, validacija i poređenje konfiguracija.
+3. `03_dataset_and_model.ipynb` — PyTorch Dataset, model, probni trening, validacija, poređenje i izbor konfiguracije.
 
 Svaku svesku izvrši redom od prve ćelije. Pre druge sveske pokreni `python -m src.split_data` da nastane lokalni `sms_train.csv`; prva sveska podelu prikazuje u memoriji i ne upisuje fajlove. Server se zaustavlja u terminalu pritiskom na `Ctrl+C` i potvrdom ako je zatraži. Komanda `deactivate` izlazi iz virtuelnog okruženja.
 
@@ -121,7 +122,7 @@ Fajl `data/processed/sms_clean.csv` nastaje lokalno i izuzet je iz Git-a.
 
 Komanda `python -m src.split_data` ponavlja čišćenje originalnog skupa i pravi `data/processed/sms_train.csv` i `data/processed/sms_test.csv`. Obe datoteke su lokalne i izuzete iz Git-a. Podela je stratifikovana po klasi: nasumično se bira približno 20% iz svake klase, uz fiksno seme 42. Trening ima 4.127 poruka (3.613 `ham`, 514 `spam`), a izdvojeni test 1.031 poruku (903 `ham`, 128 `spam`). Nema istog teksta u oba dela.
 
-Test čuvamo za završnu procenu modela. Rečnik tokena i sve parametre koji se uče iz podataka pravićemo samo iz trening dela; tokom cross-validacije iz odgovarajućeg trening fold-a. Model je implementiran i isproban na jednom izmišljenom batch-u, ali još nije treniran na celom skupu.
+Test čuvamo za završnu procenu modela. Rečnik tokena i sve parametre koji se uče iz podataka pravimo samo iz trening dela; tokom cross-validacije iz odgovarajućeg trening fold-a. Posle izbora konfiguracije novi model je treniran na celom trening delu, bez otvaranja testa.
 
 ## Tokenizacija
 
@@ -163,13 +164,13 @@ Sveska `03_dataset_and_model.ipynb` prikazuje te oblike i jedan izlaz sa tek ini
 
 `src/training.py` povezuje `SMSClassifier`, tačne oznake i optimizer za jedan batch. `CrossEntropyLoss` direktno prima dva sirova skora po poruci i celobrojnu oznaku `ham = 0` ili `spam = 1`. Posle računanja gubitka, `backward()` računa gradijente, a `AdamW.step()` jednom ažurira parametre. Stari gradijenti se brišu pre tog prolaza.
 
-Sveska `03_dataset_and_model.ipynb` prikazuje ovu promenu na dve izmišljene poruke i proverava da su se težine klasifikatora promenile. Jedan korak ne daje pouzdano naučen model niti metriku kvaliteta. Sledeća celina je prolaz kroz sve trening batch-eve tokom epoha, uz odvojenu validaciju.
+Sveska `03_dataset_and_model.ipynb` prikazuje ovu promenu na dve izmišljene poruke i proverava da su se težine klasifikatora promenile. Jedan korak ne daje pouzdano naučen model niti metriku kvaliteta. Posle tog prikaza sveska prolazi kroz sve trening batch-eve tokom epoha, uz odvojenu validaciju.
 
 ## Trening epoha
 
 `train_one_epoch` iz `src/training.py` poziva `train_one_batch` za svaki batch iz `DataLoader`-a i vraća prosečan gubitak po poruci. Pošto poslednji batch može biti manji, svaki batch gubitak množi brojem njegovih poruka pre deljenja ukupnim brojem primera.
 
-Treća sveska koristi svih 4.127 trening poruka, `batch_size=32` i `shuffle=True`: jedna epoha ima 129 batch-eva, odnosno 129 ažuriranja parametara. Prikazane su dve demonstracione epohe sa novo inicijalizovanim modelom. Gubitak nad trening porukama nije rezultat evaluacije. Sledeća celina je provera na izdvojenom delu trening skupa; završni test ostaje netaknut.
+Treća sveska koristi svih 4.127 trening poruka, `batch_size=32` i `shuffle=True`: jedna epoha ima 129 batch-eva, odnosno 129 ažuriranja parametara. Prikazane su dve demonstracione epohe sa novo inicijalizovanim modelom. Gubitak nad trening porukama nije rezultat evaluacije. Zatim sveska proverava model na izdvojenom delu trening skupa; završni test ostaje netaknut.
 
 ## Prva validacija
 
@@ -208,5 +209,27 @@ mlflow server --backend-store-uri sqlite:///mlflow.db --host 127.0.0.1 --port 50
 ```
 
 Zatim otvori `http://127.0.0.1:5050` i izaberi eksperiment `sms-spam-transformer`. Svaki red je jedna konfiguracija; kolona `mean_f1` daje prosek pet fold-ova posle treće epohe, `std_f1` njihovo rasipanje, a metrike `fold_1_f1` do `fold_5_f1` prikazuju tok kroz epohe. MLflow run nije završni sačuvani model.
+
+## Izbor konfiguracije
+
+`python -m src.select_model` čita `results/config_comparison.csv` i zapisuje odluku u `results/selected_model.json`. Prvo bira arhitekturu sa najvećim prosečnim F1 za spam posle **unapred određene treće epohe**. To je `wide` sa F1 **0,894**. Zatim među epohama samo te arhitekture bira onu sa najvećim prosečnim F1: **drugu**, sa F1 **0,901** i standardnom devijacijom **0,016**. U slučaju jednakog rezultata bira raniju epohu.
+
+Druga epoha ima prosečan precision 0,965 i recall 0,846; treća ima precision 0,931 i recall 0,866. Dakle, ovaj izbor daje bolji F1, ali propušta nešto više spam poruka. `shallow` je jednostavnija alternativa, ali ima niži prosečan F1 posle treće epohe (0,882). Razlike su male i ovi brojevi su validacione procene, ne garantovan rezultat na novim porukama. Odluka se ne menja na osnovu izdvojenog testa.
+
+Posle izbora napravili smo novu instancu `wide` modela i nov rečnik iz svih 4.127 trening poruka. Nijedan model iz cross-validacije nije postao konačan model.
+
+## Konačno treniranje i čuvanje modela
+
+`python -m src.train_final` čita samo `sms_train.csv` i `results/selected_model.json`, pravi nov model sa nasumično inicijalizovanim težinama i trenira ga dve epohe. Koristi isti batch od 32, stopu učenja 0,001, maksimalnu dužinu 128 i seme 42 kao eksperiment za izbor. Gubitak treniranja po epohi upisuje u `results/final_training.csv` i u zaseban MLflow eksperiment `sms-spam-final-training`.
+
+Konačni rečnik ima **7.842 tokena**, a model **914.882 parametra**. Više parametara nego u pojedinačnim CV foldovima potiče od većeg rečnika iz celog trening skupa. Trening gubitak se smanjio sa **0,1857** na **0,0657**; to pokazuje da model uči trening poruke, ali nije mera rada na neviđenim porukama.
+
+`models/final_model.pt` sadrži `state_dict` naučenih težina, rečnik tokena, arhitekturu, maksimalnu dužinu, mapiranje `ham=0`/`spam=1` i podatke o treniranju. `src/model_io.py` iz tih podataka ponovo pravi `SMSClassifier`, učitava težine uz `weights_only=True` i prebacuje ga u režim za predviđanje. Skripta proverava da učitani model daje isti izlaz kao model neposredno posle treniranja. Fajl `.pt` i ceo `models/` direktorijum su izuzeti iz Git-a; možeš ih ponovo dobiti pokretanjem gornje komande nakon pripreme podataka.
+
+## Završni test
+
+`python -m src.evaluate_final` učitava sačuvani `models/final_model.pt` i `sms_test.csv`. Proverava da se tekstovi treninga i testa ne preklapaju, koristi rečnik i maksimalnu dužinu iz checkpoint-a, ne menja težine i upisuje `results/test_metrics.json`.
+
+Na **1.031** izdvojenoj poruci rezultat je: accuracy **0,9767**, precision za spam **0,9815**, recall **0,8281** i F1 **0,8983**. Matrica zabune ima **901 TN**, **2 FP**, **22 FN** i **106 TP**. Dakle, model je propustio 22 od 128 spam poruka, uz samo dve regularne poruke pogrešno označene kao spam. Treća sveska prikazuje ove metrike i matricu. Test rezultat ne koristimo da ponovo biramo arhitekturu ili broj epoha.
 
 Puni eksperiment je dao 75 redova bez nedostajućih vrednosti. Posle treće epohe `wide` ima najviši prosečan F1 za spam (0,894; standardna devijacija 0,026), a `shallow` je blizu (0,882; standardna devijacija 0,015) uz približno 483 hiljade parametara naspram 824 hiljade. `wide` ima prosečan F1 0,901 posle druge epohe, pa tri epohe nisu automatski najbolji izbor. Ovi brojevi služe poređenju na validaciji, ne predstavljaju rezultat završnog testiranja.
